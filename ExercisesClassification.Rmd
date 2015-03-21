@@ -1,0 +1,45 @@
+---
+title: "Weight Lifting Exercises Classification"
+author: "Geojsg"
+output: html_document
+---
+
+## Data Loading (training & test)
+
+```{r data_loading}
+pmltrain<-read.csv("pml-training.csv",header=T)
+pmltest<-read.csv("pml-testing.csv",header=T)
+
+## dimension of the training set
+dim(pmltrain)
+
+```
+
+## Exploration
+
+
+
+## Pre-processing
+
+First, we will remove all features having mostling blank or NA value
+
+```{r preproc1}
+NAcol<-sapply(pmltrain,function(x) (sum(is.na(x)|x=="")/nrow(pmltrain))>0.95)
+pmlc<-pmltrain[,!NAcol]
+dim(pmlc)
+
+```
+
+## Removing features having more than 95% of NA values
+NAcol<-sapply(pml,function(x) (sum(is.na(x)|x=="")/nrow(pml))>0.95)
+pmlc<-pml[,!NAcol]
+
+## Removing non-relevant features such as user names and timestamp according to the context
+pmlc<-pmlc[,-c(1:7)]
+
+```{r partition, warning=FALSE }
+library(caret)
+inTrain<-createDataPartition(y=pmlc$classe, p=0.7,list=FALSE)
+training<-pmlc[inTrain,]
+testing<-pmlc[-inTrain,]
+```
