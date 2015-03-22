@@ -59,10 +59,11 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 
 <div id="executive-summary" class="section level3">
 <h3>Executive summary</h3>
-<p>The purpose of</p>
+<p>The purpose is to propose a multi-class classifier able to assess the quality (5 different levels) of weight lifting exercises using data from different sensors and the related training dataset.<br />First, the training dataset is cleaned, split into training and cross-validation and random forests are used on a small subset of training to find and select the most important predictors.<br />Then random forests are again used but on the full training dataset to predict and evaluate the classes on cross-validation dataset before predicting them of the testing dataset.</p>
+<p>Further materials related to the dataset:<br /><a href="http://groupware.les.inf.puc-rio.br/har" class="uri">http://groupware.les.inf.puc-rio.br/har</a></p>
 </div>
-<div id="data-loading-training-test" class="section level3">
-<h3>Data Loading (training &amp; test)</h3>
+<div id="data-loading-train-test" class="section level3">
+<h3>Data Loading (train &amp; test)</h3>
 <pre class="r"><code>pmltrain&lt;-read.csv(&quot;pml-training.csv&quot;,header=T)
 pmltest&lt;-read.csv(&quot;pml-testing.csv&quot;,header=T)
 
@@ -77,10 +78,7 @@ table(pmltrain$classe)</code></pre>
 <p>The training dataset has 19622 observations with 160 features and a categorical variable as output having 5 different values (multi class)</p>
 <pre class="r"><code>dim(pmltest)</code></pre>
 <pre><code>## [1]  20 160</code></pre>
-<p>The testing set for which class variable needs to be predicted has 20 observations and also 160 features.</p>
-</div>
-<div id="exploration" class="section level3">
-<h3>Exploration</h3>
+<p>The testing set, for which class variable needs to be predicted, has 20 observations and also 160 features.</p>
 </div>
 <div id="pre-processing" class="section level3">
 <h3>Pre-processing</h3>
@@ -112,7 +110,7 @@ dim(pmlc)</code></pre>
 ## [52] &quot;gyros_forearm_y&quot;      &quot;gyros_forearm_z&quot;      &quot;accel_forearm_x&quot;     
 ## [55] &quot;accel_forearm_y&quot;      &quot;accel_forearm_z&quot;      &quot;magnet_forearm_x&quot;    
 ## [58] &quot;magnet_forearm_y&quot;     &quot;magnet_forearm_z&quot;     &quot;classe&quot;</code></pre>
-<p>Let have a closer look to following features which by names does not sound like useful predictors:</p>
+<p>Let’s have a closer look to following features which by names does not sound like useful predictors:</p>
 <pre class="r"><code>summary(pmlc[,c(1:7)])</code></pre>
 <pre><code>##        X            user_name    raw_timestamp_part_1 raw_timestamp_part_2
 ##  Min.   :    1   adelmo  :3892   Min.   :1.322e+09    Min.   :   294      
@@ -130,7 +128,7 @@ dim(pmlc)</code></pre>
 ##  02/12/2011 14:57: 1380               3rd Qu.:644.0  
 ##  02/12/2011 13:34: 1375               Max.   :864.0  
 ##  (Other)         :11007</code></pre>
-<p>As the problem is to classify the quality of the exercises using data of the sensor at disposal, we can assume that following features are not useful predictors:<br />- X, as it is an incremental variable (most probably record ID) - user name - timestamp features - windows features</p>
+<p>As the problem is to classify the quality of the exercises using data of the sensor at disposal, we can assume that following features are not useful predictors:<br />- X, as it is an incremental variable (most probably record ID)<br />- user name<br />- timestamp features<br />- windows features</p>
 <pre class="r"><code>## Removing non-relevant features such as user names and timestamp according to the context
 pmlc&lt;-pmlc[,-c(1:7)]
 dim(pmlc)</code></pre>
@@ -140,10 +138,10 @@ dim(pmlc)</code></pre>
 <div id="splitting-the-training-dataset" class="section level3">
 <h3>Splitting the training dataset</h3>
 <p>In order to be able to evaluate our predictions before applying on test dataset, let’s split the training dataset in two: training (70%) to train our algorithm and cross-validation (30%).</p>
-<pre class="r"><code>library(caret)</code></pre>
-<pre><code>## Loading required package: lattice
-## Loading required package: ggplot2</code></pre>
-<pre class="r"><code>inTrain&lt;-createDataPartition(y=pmlc$classe, p=0.7,list=FALSE)
+<pre class="r"><code>library(ggplot2)
+library(lattice)
+library(caret)
+inTrain&lt;-createDataPartition(y=pmlc$classe, p=0.7,list=FALSE)
 training&lt;-pmlc[inTrain,]
 cv&lt;-pmlc[-inTrain,]
 dim(training)</code></pre>
@@ -154,6 +152,9 @@ dim(training)</code></pre>
 <div id="identifying-the-most-important-features" class="section level3">
 <h3>Identifying the most important features</h3>
 <p>Let’s review the top most important predictors of the dataset in order to use them For that, the random forest algorithm will be used but due to its computation needs over a datasets of 53 and 13737, only 30% of the training dataset (i.e. 4121 which is still quite significant) will be used to identify the most important features.</p>
+<pre class="r"><code>library(randomForest)</code></pre>
+<pre><code>## randomForest 4.6-10
+## Type rfNews() to see new features/changes/bug fixes.</code></pre>
 <pre class="r"><code>trainingred&lt;-training[sample(1:nrow(training),nrow(training)*0.3),]
 fit.rfp&lt;-train(classe~.,data=trainingred,method=&quot;rf&quot;)
 varImp(fit.rfp)</code></pre>
@@ -163,52 +164,50 @@ varImp(fit.rfp)</code></pre>
 ## 
 ##                      Overall
 ## roll_belt            100.000
-## pitch_forearm         59.798
-## magnet_dumbbell_z     40.966
-## yaw_belt              40.684
-## magnet_dumbbell_y     37.154
-## roll_forearm          34.725
-## pitch_belt            34.685
-## accel_dumbbell_y      23.221
-## roll_dumbbell         21.391
-## magnet_belt_y         17.864
-## magnet_belt_z         16.099
-## magnet_dumbbell_x     15.275
-## total_accel_dumbbell  14.867
-## accel_forearm_x       13.876
-## accel_dumbbell_z      11.424
-## magnet_belt_x         11.190
-## magnet_forearm_z      10.257
-## accel_belt_z          10.066
-## accel_forearm_z        8.294
-## yaw_dumbbell           7.667</code></pre>
+## pitch_forearm         64.843
+## yaw_belt              55.222
+## magnet_dumbbell_y     53.437
+## magnet_dumbbell_z     48.806
+## roll_forearm          45.155
+## pitch_belt            38.885
+## accel_forearm_x       21.628
+## accel_dumbbell_y      21.338
+## roll_dumbbell         18.171
+## magnet_dumbbell_x     17.210
+## magnet_forearm_z      17.203
+## gyros_belt_z          16.823
+## accel_dumbbell_z      15.294
+## magnet_belt_y         15.215
+## magnet_belt_z         14.596
+## accel_belt_z          11.927
+## gyros_dumbbell_y      10.656
+## total_accel_dumbbell   9.851
+## magnet_arm_x           9.675</code></pre>
 <p>Let’s select all predictors being more than 0.15 and let’s have a look at the most important</p>
 <pre class="r"><code>impo&lt;-varImp(fit.rfp)$importance</code></pre>
-<pre><code>## Loading required package: randomForest</code></pre>
-<pre><code>## Warning: package 'randomForest' was built under R version 3.1.1</code></pre>
-<pre><code>## randomForest 4.6-10
+<pre><code>## Loading required package: randomForest
+## randomForest 4.6-10
 ## Type rfNews() to see new features/changes/bug fixes.</code></pre>
 <pre class="r"><code>impo$feat&lt;-rownames(impo)
-impo$feat[impo$Overall&gt;15]</code></pre>
+mainfeat&lt;-impo$feat[impo$Overall&gt;15]
+mainfeat</code></pre>
 <pre><code>##  [1] &quot;roll_belt&quot;         &quot;pitch_belt&quot;        &quot;yaw_belt&quot;         
-##  [4] &quot;magnet_belt_y&quot;     &quot;magnet_belt_z&quot;     &quot;roll_dumbbell&quot;    
-##  [7] &quot;accel_dumbbell_y&quot;  &quot;magnet_dumbbell_x&quot; &quot;magnet_dumbbell_y&quot;
-## [10] &quot;magnet_dumbbell_z&quot; &quot;roll_forearm&quot;      &quot;pitch_forearm&quot;</code></pre>
-<pre class="r"><code>mainfeat&lt;-impo$feat[impo$Overall&gt;15]
-length(mainfeat)</code></pre>
-<pre><code>## [1] 12</code></pre>
-<p>We will use only these 12 features as predictors.</p>
+##  [4] &quot;gyros_belt_z&quot;      &quot;magnet_belt_y&quot;     &quot;roll_dumbbell&quot;    
+##  [7] &quot;accel_dumbbell_y&quot;  &quot;accel_dumbbell_z&quot;  &quot;magnet_dumbbell_x&quot;
+## [10] &quot;magnet_dumbbell_y&quot; &quot;magnet_dumbbell_z&quot; &quot;roll_forearm&quot;     
+## [13] &quot;pitch_forearm&quot;     &quot;accel_forearm_x&quot;   &quot;magnet_forearm_z&quot;</code></pre>
+<p>We will use only these 15 features as predictors.</p>
 <pre class="r"><code>trainingimp&lt;-training[,c(mainfeat,&quot;classe&quot;)]</code></pre>
 </div>
 <div id="training-using-random-forest" class="section level3">
 <h3>Training using random forest</h3>
-<p>Known for its accuracy and …, random forest is the algorithm we select for the training of the data.</p>
+<p>For the training of the data, random forest is preferred for its accuracy.</p>
 <pre class="r"><code>fit.rfimp&lt;-train(classe~.,data=trainingimp,method=&quot;rf&quot;)
 fit.rfimp</code></pre>
 <pre><code>## Random Forest 
 ## 
 ## 13737 samples
-##    12 predictor
+##    15 predictor
 ##     5 classes: 'A', 'B', 'C', 'D', 'E' 
 ## 
 ## No pre-processing
@@ -219,100 +218,88 @@ fit.rfimp</code></pre>
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy  Kappa  Accuracy SD  Kappa SD
-##    2    0.977     0.971  0.00261      0.00330 
-##    7    0.978     0.972  0.00267      0.00337 
-##   12    0.969     0.961  0.00530      0.00671 
+##    2    0.984     0.98   0.00246      0.00310 
+##    8    0.984     0.98   0.00262      0.00332 
+##   15    0.976     0.97   0.00452      0.00574 
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
-## The final value used for the model was mtry = 7.</code></pre>
-<p>Let’s check the ?in sample error?</p>
+## The final value used for the model was mtry = 2.</code></pre>
+<p>Let’s check the in-sample error rate.</p>
 <pre class="r"><code>predtr&lt;-predict(fit.rfimp,trainingimp)
-confusionMatrix(trainingimp$classe,predtr)</code></pre>
+cfMtr&lt;-confusionMatrix(trainingimp$classe,predtr)
+cfMtr</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 3906    0    0    0    0
-##          B    0 2658    0    0    0
-##          C    0    0 2396    0    0
-##          D    0    0    0 2252    0
-##          E    0    0    0    0 2525
+##          A 3901    5    0    0    0
+##          B    6 2640   12    0    0
+##          C    0   10 2381    5    0
+##          D    0    1   11 2238    2
+##          E    0    0    1    2 2522
 ## 
 ## Overall Statistics
-##                                      
-##                Accuracy : 1          
-##                  95% CI : (0.9997, 1)
-##     No Information Rate : 0.2843     
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16  
-##                                      
-##                   Kappa : 1          
-##  Mcnemar's Test P-Value : NA         
+##                                          
+##                Accuracy : 0.996          
+##                  95% CI : (0.9948, 0.997)
+##     No Information Rate : 0.2844         
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
+##                                          
+##                   Kappa : 0.9949         
+##  Mcnemar's Test P-Value : NA             
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            1.0000   1.0000   1.0000   1.0000   1.0000
-## Specificity            1.0000   1.0000   1.0000   1.0000   1.0000
-## Pos Pred Value         1.0000   1.0000   1.0000   1.0000   1.0000
-## Neg Pred Value         1.0000   1.0000   1.0000   1.0000   1.0000
-## Prevalence             0.2843   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2843   0.1935   0.1744   0.1639   0.1838
+## Sensitivity            0.9985   0.9940   0.9900   0.9969   0.9992
+## Specificity            0.9995   0.9984   0.9987   0.9988   0.9997
+## Pos Pred Value         0.9987   0.9932   0.9937   0.9938   0.9988
+## Neg Pred Value         0.9994   0.9986   0.9979   0.9994   0.9998
+## Prevalence             0.2844   0.1933   0.1751   0.1634   0.1837
+## Detection Rate         0.2840   0.1922   0.1733   0.1629   0.1836
 ## Detection Prevalence   0.2843   0.1935   0.1744   0.1639   0.1838
-## Balanced Accuracy      1.0000   1.0000   1.0000   1.0000   1.0000</code></pre>
-<pre class="r"><code>str(confusionMatrix(trainingimp$classe,predtr))</code></pre>
-<pre><code>## List of 5
-##  $ positive: NULL
-##  $ table   : 'table' int [1:5, 1:5] 3906 0 0 0 0 0 2658 0 0 0 ...
-##   ..- attr(*, &quot;dimnames&quot;)=List of 2
-##   .. ..$ Prediction: chr [1:5] &quot;A&quot; &quot;B&quot; &quot;C&quot; &quot;D&quot; ...
-##   .. ..$ Reference : chr [1:5] &quot;A&quot; &quot;B&quot; &quot;C&quot; &quot;D&quot; ...
-##  $ overall : Named num [1:7] 1 1 1 1 0.284 ...
-##   ..- attr(*, &quot;names&quot;)= chr [1:7] &quot;Accuracy&quot; &quot;Kappa&quot; &quot;AccuracyLower&quot; &quot;AccuracyUpper&quot; ...
-##  $ byClass : num [1:5, 1:8] 1 1 1 1 1 1 1 1 1 1 ...
-##   ..- attr(*, &quot;dimnames&quot;)=List of 2
-##   .. ..$ : chr [1:5] &quot;Class: A&quot; &quot;Class: B&quot; &quot;Class: C&quot; &quot;Class: D&quot; ...
-##   .. ..$ : chr [1:8] &quot;Sensitivity&quot; &quot;Specificity&quot; &quot;Pos Pred Value&quot; &quot;Neg Pred Value&quot; ...
-##  $ dots    : list()
-##  - attr(*, &quot;class&quot;)= chr &quot;confusionMatrix&quot;</code></pre>
-<p>Results is quite satisfying, so let’s the result on the cross-validation subset. First, we need to select only the most important features from the cross-validation subset.</p>
+## Balanced Accuracy      0.9990   0.9962   0.9943   0.9978   0.9995</code></pre>
+<p>Actually there is no in-sample error at all as accuracy is 0.9959962, but it may overfit so let’s see the result on the cross-validation subset, if there is no overfit, the accuracy should be high, close to 1. First, we need to select only the most important features from the cross-validation subset.</p>
 <pre class="r"><code>cvimp&lt;-cv[,c(mainfeat,&quot;classe&quot;)]
 predcv&lt;-predict(fit.rfimp,cvimp)
-confusionMatrix(cvimp$classe,predcv)</code></pre>
+cfMcv&lt;-confusionMatrix(cvimp$classe,predcv)
+cfMcv</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1656   14    2    2    0
-##          B   11 1106   17    5    0
-##          C    0   14 1003    9    0
-##          D    0    3    8  949    4
-##          E    0    4    3    3 1072
+##          A 1674    0    0    0    0
+##          B    0 1138    1    0    0
+##          C    0    4 1020    2    0
+##          D    0    0    2  962    0
+##          E    0    0    1    1 1080
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.9832          
-##                  95% CI : (0.9796, 0.9863)
-##     No Information Rate : 0.2833          
+##                Accuracy : 0.9981          
+##                  95% CI : (0.9967, 0.9991)
+##     No Information Rate : 0.2845          
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.9787          
+##                   Kappa : 0.9976          
 ##  Mcnemar's Test P-Value : NA              
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9934   0.9693   0.9710   0.9804   0.9963
-## Specificity            0.9957   0.9930   0.9953   0.9969   0.9979
-## Pos Pred Value         0.9892   0.9710   0.9776   0.9844   0.9908
-## Neg Pred Value         0.9974   0.9926   0.9938   0.9961   0.9992
-## Prevalence             0.2833   0.1939   0.1755   0.1645   0.1828
-## Detection Rate         0.2814   0.1879   0.1704   0.1613   0.1822
+## Sensitivity            1.0000   0.9965   0.9961   0.9969   1.0000
+## Specificity            1.0000   0.9998   0.9988   0.9996   0.9996
+## Pos Pred Value         1.0000   0.9991   0.9942   0.9979   0.9982
+## Neg Pred Value         1.0000   0.9992   0.9992   0.9994   1.0000
+## Prevalence             0.2845   0.1941   0.1740   0.1640   0.1835
+## Detection Rate         0.2845   0.1934   0.1733   0.1635   0.1835
 ## Detection Prevalence   0.2845   0.1935   0.1743   0.1638   0.1839
-## Balanced Accuracy      0.9946   0.9812   0.9831   0.9887   0.9971</code></pre>
-<p>The results are also quite satisfying. The algorithm generalizes well. ROC</p>
+## Balanced Accuracy      1.0000   0.9981   0.9974   0.9982   0.9998</code></pre>
+<p>The results are also quite satisfying as accuracy is 0.998: the algorithm generalizes well.</p>
 </div>
 <div id="predicting-the-classe-on-testing-dataset" class="section level2">
 <h2>Predicting the classe on testing dataset</h2>
+<p>Now let’s predict the 20 classes from the test dataset and with their probabilities to get further information. First, the test dataset is transformed in same way as the training dataset.</p>
 <pre class="r"><code>pmltestc&lt;-pmltest[,!NAcol]
 pmltestc&lt;-pmltestc[,-c(1:7)]
 pmltestimp&lt;-pmltestc[,mainfeat]
@@ -320,29 +307,43 @@ pmlpred&lt;-predict(fit.rfimp,pmltestimp)
 pmlpred</code></pre>
 <pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
 ## Levels: A B C D E</code></pre>
-<pre class="r"><code>## to visualize probabilities
+<pre class="r"><code>## Probabilities of each classes
 predict(fit.rfimp,pmltestimp,type=&quot;prob&quot;)</code></pre>
 <pre><code>##        A     B     C     D     E
-## 1  0.088 0.868 0.014 0.018 0.012
-## 2  0.988 0.010 0.000 0.002 0.000
-## 3  0.004 0.984 0.006 0.000 0.006
-## 4  0.804 0.002 0.134 0.060 0.000
-## 5  0.986 0.014 0.000 0.000 0.000
-## 6  0.004 0.042 0.022 0.012 0.920
-## 7  0.000 0.060 0.032 0.890 0.018
-## 8  0.026 0.808 0.062 0.070 0.034
-## 9  1.000 0.000 0.000 0.000 0.000
+## 1  0.126 0.744 0.076 0.050 0.004
+## 2  0.980 0.010 0.010 0.000 0.000
+## 3  0.032 0.886 0.058 0.000 0.024
+## 4  0.460 0.020 0.354 0.164 0.002
+## 5  0.938 0.046 0.012 0.000 0.004
+## 6  0.018 0.072 0.090 0.022 0.798
+## 7  0.010 0.012 0.046 0.910 0.022
+## 8  0.076 0.634 0.070 0.202 0.018
+## 9  0.992 0.000 0.000 0.008 0.000
 ## 10 1.000 0.000 0.000 0.000 0.000
-## 11 0.006 0.754 0.114 0.044 0.082
-## 12 0.000 0.112 0.766 0.016 0.106
-## 13 0.000 1.000 0.000 0.000 0.000
+## 11 0.030 0.716 0.126 0.072 0.056
+## 12 0.010 0.094 0.824 0.018 0.054
+## 13 0.008 0.956 0.000 0.008 0.028
 ## 14 1.000 0.000 0.000 0.000 0.000
-## 15 0.002 0.004 0.006 0.002 0.986
-## 16 0.014 0.000 0.000 0.004 0.982
+## 15 0.002 0.022 0.016 0.014 0.946
+## 16 0.012 0.018 0.000 0.008 0.962
 ## 17 1.000 0.000 0.000 0.000 0.000
-## 18 0.038 0.760 0.008 0.158 0.036
-## 19 0.168 0.828 0.000 0.000 0.004
-## 20 0.000 1.000 0.000 0.000 0.000</code></pre>
+## 18 0.152 0.562 0.024 0.226 0.036
+## 19 0.344 0.612 0.000 0.040 0.004
+## 20 0.002 0.990 0.000 0.000 0.008</code></pre>
+<p>Saving each prediction in a file:</p>
+<pre class="r"><code>pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0(&quot;outputs/problem_id_&quot;,i,&quot;.txt&quot;)
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(pmlpred)</code></pre>
+<div id="results" class="section level3">
+<h3>Results</h3>
+<p>The 20 cases were perfectly predicted.</p>
+</div>
 </div>
 
 

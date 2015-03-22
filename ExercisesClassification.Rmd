@@ -5,9 +5,14 @@ output: html_document
 ---
 
 ### Executive summary
-The purpose of 
+The purpose is to propose a multi-class classifier able to assess the quality (5 different levels) of weight lifting exercises using data from different sensors and the related training dataset.  
+First, the training dataset is cleaned, split into training and cross-validation and random forests are used on a small subset of training to find and select the most important predictors.  
+Then random forests are again used but on the full training dataset to predict and evaluate the classes on cross-validation dataset before predicting them of the testing dataset.  
+  
+Further materials related to the dataset:  
+http://groupware.les.inf.puc-rio.br/har  
 
-### Data Loading (training & test)
+### Data Loading (train & test)
 
 ```{r data_loading, cache=TRUE}
 pmltrain<-read.csv("pml-training.csv",header=T)
@@ -26,11 +31,7 @@ The training dataset has `r nrow(pmltrain)` observations with `r ncol(pmltrain)`
 ```{r te}
 dim(pmltest)
 ```
-The testing set for which class variable needs to be predicted has `r nrow(pmltest)` observations and also `r ncol(pmltest)` features.
-
-### Exploration
-
-
+The testing set, for which class variable needs to be predicted, has `r nrow(pmltest)` observations and also `r ncol(pmltest)` features.
 
 ### Pre-processing
 
@@ -49,16 +50,16 @@ Let's have a look at the remaining features names to try to identify non-relevan
 ```{r featurenames}
 names(pmlc)
 ```
-Let have a closer look to following features which by names does not sound like useful predictors:
+Let's have a closer look to following features which by names does not sound like useful predictors:
 
 ```{r nonrelevantfeat}
 summary(pmlc[,c(1:7)])
 ```
 As the problem is to classify the quality of the exercises using data of the sensor at disposal, we can assume that following features are not useful predictors:  
-- X, as it is an incremental variable (most probably record ID)
-- user name
-- timestamp features
-- windows features
+- X, as it is an incremental variable (most probably record ID)  
+- user name  
+- timestamp features  
+- windows features  
 
 ```{r rmnonrelfeat}
 ## Removing non-relevant features such as user names and timestamp according to the context
@@ -72,6 +73,8 @@ Now, our dataset contains only `r ncol(pmlc)` relevant features.
 In order to be able to evaluate our predictions before applying on test dataset, let's split the training dataset in two: training (70%) to train our algorithm and cross-validation (30%).
 
 ```{r partition, warning=FALSE }
+library(ggplot2)
+library(lattice)
 library(caret)
 inTrain<-createDataPartition(y=pmlc$classe, p=0.7,list=FALSE)
 training<-pmlc[inTrain,]
@@ -86,6 +89,7 @@ Let's review the top most important predictors of the dataset in order to use th
 For that, the random forest algorithm will be used but due to its computation needs over a datasets of `r ncol(training)` and `r nrow(training)`, only 30% of the training dataset (i.e. `r round(nrow(training)*0.3,0)` which is still quite significant) will be used to identify the most important features.
 
 ```{r impfeat, cache=TRUE, warning=FALSE }
+library(randomForest)
 trainingred<-training[sample(1:nrow(training),nrow(training)*0.3),]
 fit.rfp<-train(classe~.,data=trainingred,method="rf")
 varImp(fit.rfp)
@@ -93,12 +97,11 @@ varImp(fit.rfp)
 
 Let's select all predictors being more than 0.15 and let's have a look at the most important
 
-```{r selectfeat}
+```{r selectfeat, warning=FALSE}
 impo<-varImp(fit.rfp)$importance
 impo$feat<-rownames(impo)
-impo$feat[impo$Overall>15]
 mainfeat<-impo$feat[impo$Overall>15]
-length(mainfeat)
+mainfeat
 ```
 We will use only these `r length(mainfeat)` features as predictors.
 
@@ -108,36 +111,37 @@ trainingimp<-training[,c(mainfeat,"classe")]
 
 ### Training using random forest
 
-Known for its accuracy and ..., random forest is the algorithm we select for the training of the data.
+For the training of the data, random forest is preferred for its accuracy.
 
 ```{r trainrf, cache=TRUE}
 fit.rfimp<-train(classe~.,data=trainingimp,method="rf")
 fit.rfimp
 ```
 
+Let's check the in-sample error rate.
 
-Let's check the ?in sample error?
-
-```{r}
+```{r insample}
 predtr<-predict(fit.rfimp,trainingimp)
-confusionMatrix(trainingimp$classe,predtr)
-str(confusionMatrix(trainingimp$classe,predtr))
+cfMtr<-confusionMatrix(trainingimp$classe,predtr)
+cfMtr
 ```
 
-Results is quite satisfying, so let's the result on the cross-validation subset.
+Actually there is no in-sample error at all as accuracy is `r cfMtr$overall[1]`, but it may overfit so let's see the result on the cross-validation subset, if there is no overfit, the accuracy should be high, close to 1.
 First, we need to select only the most important features from the cross-validation subset.
 
-```{r prediction cv}
+```{r predictioncv}
 cvimp<-cv[,c(mainfeat,"classe")]
 predcv<-predict(fit.rfimp,cvimp)
-confusionMatrix(cvimp$classe,predcv)
+cfMcv<-confusionMatrix(cvimp$classe,predcv)
+cfMcv
 ```
 
-The results are also quite satisfying. The algorithm generalizes well.
-ROC
-
+The results are also quite satisfying as accuracy is `r round(cfMcv$overall[1],3)`: the algorithm generalizes well.
 
 ## Predicting the classe on testing dataset
+
+Now let's predict the 20 classes from the test dataset and with their probabilities to get further information.
+First, the test dataset is transformed in same way as the training dataset.
 
 ```{r predictions}
 
@@ -146,8 +150,24 @@ pmltestc<-pmltestc[,-c(1:7)]
 pmltestimp<-pmltestc[,mainfeat]
 pmlpred<-predict(fit.rfimp,pmltestimp)
 pmlpred
-## to visualize probabilities
+## Probabilities of each classes
 predict(fit.rfimp,pmltestimp,type="prob")
 ```
 
+Saving each prediction in a file:
 
+```{r savefile}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("outputs/problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(pmlpred)
+```
+
+### Results
+
+The 20 cases were perfectly predicted.
